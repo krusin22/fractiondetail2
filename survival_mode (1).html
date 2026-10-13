@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>เกมเศษเกินมหาสนุก (Survival Mode)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Mali', cursive;
+            background-color: #0f172a; 
+            background-image: radial-gradient(#1e293b 2px, transparent 2px);
+            background-size: 30px 30px;
+            overflow: hidden;
+            touch-action: manipulation;
+            color: #f8fafc;
+        }
+        
+        .fraction-line {
+            border-bottom: 8px solid #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .btn-bounce {
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-bounce:active {
+            transform: scale(0.92);
+        }
+
+        @keyframes bounce-mascot {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .animate-mascot {
+            animation: bounce-mascot 1s infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-15px) rotate(-3deg); }
+            40%, 80% { transform: translateX(15px) rotate(3deg); }
+        }
+        .shake-screen {
+            animation: shake 0.3s ease-in-out;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop {
+            animation: pop 0.3s ease-out forwards;
+        }
+        
+        @keyframes fadeUp {
+            0% { transform: translateY(10px); opacity: 0; }
+            20% { transform: translateY(0); opacity: 1; }
+            80% { transform: translateY(-10px); opacity: 1; }
+            100% { transform: translateY(-20px); opacity: 0; }
+        }
+        .animate-fade-up {
+            animation: fadeUp 1s ease-in-out forwards;
+        }
+
+        #timer-bar {
+            transition: width 0.05s linear, background-color 0.3s ease;
+        }
+    </style>
+</head>
+<body class="min-h-[100dvh] flex items-center justify-center p-2 sm:p-4 select-none">
+
+    <div id="game-container" class="bg-slate-800 rounded-[1.5rem] sm:rounded-[2.5rem] shadow-[0_10px_50px_rgb(0,0,0,0.5)] w-full max-w-xl mx-auto border-4 border-slate-600 relative overflow-hidden flex flex-col min-h-[550px] sm:min-h-[650px]">
+        
+        <!-- Header / Status Bar -->
+        <div class="bg-slate-900 text-white p-3 flex justify-between items-center z-10 border-b-2 border-slate-700">
+            <div class="flex flex-col text-left">
+                <span class="text-[0.65rem] sm:text-xs font-bold text-slate-400 uppercase">High Score</span>
+                <span class="text-base sm:text-lg font-bold text-yellow-400">🏆 <span id="high-score">0</span></span>
+            </div>
+            
+            <div class="flex flex-col items-center bg-slate-800 px-6 py-1 rounded-2xl border-2 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.4)] relative">
+                <span class="text-[0.65rem] sm:text-xs font-bold text-indigo-300 uppercase tracking-widest">Level</span>
+                <span class="text-2xl sm:text-3xl font-extrabold text-indigo-400 drop-shadow-md" id="level-display">1</span>
+            </div>
+
+            <div class="flex flex-col text-right">
+                <span class="text-[0.65rem] sm:text-xs font-bold text-slate-400 uppercase">Score</span>
+                <span class="text-base sm:text-lg font-bold text-green-400">⭐ <span id="score">0</span></span>
+            </div>
+        </div>
+
+        <div class="p-3 sm:p-6 flex-grow flex flex-col relative z-10">
+            
+            <div class="flex justify-between items-end mb-4 h-16">
+                <!-- Mascot -->
+                <div class="flex items-center gap-2">
+                    <div id="mascot" class="text-4xl sm:text-5xl animate-mascot drop-shadow-md">🦉</div>
+                    <div id="mascot-speech" class="bg-slate-700 border border-slate-600 rounded-2xl rounded-tl-none p-2 text-xs sm:text-sm font-bold text-slate-200 shadow-sm hidden">
+                        พร้อมไหม?
+                    </div>
+                </div>
+
+                <!-- Level Progress -->
+                <div class="text-right">
+                    <div class="text-xs font-bold text-sky-400 uppercase tracking-wider mb-1">สะสมเลื่อนขั้น</div>
+                    <div class="bg-slate-700 text-white px-4 py-1.5 rounded-full font-bold text-sm sm:text-base border border-slate-600 inline-block shadow-inner relative">
+                        🎯 <span id="progress-text">0/10</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timer Bar -->
+            <div class="w-full bg-slate-900 rounded-full h-4 sm:h-5 mb-1 relative overflow-hidden border border-slate-700">
+                <div id="timer-bar" class="bg-emerald-500 h-full rounded-full w-full"></div>
+            </div>
+            <div class="flex justify-between text-xs font-bold text-slate-400 mb-4">
+                <span>เวลาเต็ม: <span id="max-time-text">15</span> วิ</span>
+                <span class="text-white text-sm" id="time-text">15.0 วิ</span>
+            </div>
+
+            <!-- Main Fraction Display -->
+            <div class="bg-slate-700 rounded-2xl sm:rounded-3xl p-4 mb-4 flex flex-col items-center justify-center border-2 border-slate-600 shadow-inner flex-grow min-h-[180px] relative">
+                
+                <div id="floating-wrong" class="absolute inset-0 flex items-center justify-center z-20 pointer-events-none hidden">
+                    <span class="bg-rose-600 text-white font-bold text-xl sm:text-2xl px-4 py-2 rounded-xl shadow-lg border-2 border-white transform rotate-[-5deg]">❌ ผิด! ลองใหม่!</span>
+                </div>
+
+                <div id="fraction-container" class="text-center font-bold text-slate-100 text-7xl sm:text-8xl leading-none flex flex-col items-center mb-4 transition-transform z-10">
+                    <div id="numerator" class="text-sky-300 drop-shadow-lg mb-2">?</div>
+                    <div class="fraction-line w-24 sm:w-32 my-1 sm:my-2"></div>
+                    <div id="denominator" class="text-pink-400 drop-shadow-lg mt-2">?</div>
+                </div>
+            </div>
+
+            <!-- Answer Buttons -->
+            <div class="grid grid-cols-3 gap-2 sm:gap-4 mt-auto">
+                <button onclick="checkAnswer('proper')" class="btn-bounce min-h-[90px] bg-gradient-to-b from-sky-500 to-blue-600 text-white font-bold py-2 px-1 rounded-2xl shadow-[0_6px_0_rgb(30,64,175)] active:shadow-[0_0px_0_rgb(30,64,175)] active:translate-y-[6px] border-2 border-blue-400 flex flex-col items-center justify-center gap-1">
+                    <span class="text-2xl sm:text-4xl mb-1">👦</span>
+                    <span class="text-[0.65rem] sm:text-base leading-tight">คนปกติ</span>
+                    <span class="text-[0.5rem] sm:text-xs font-normal bg-blue-900/50 rounded-full px-1.5 py-0.5">(บน < ล่าง)</span>
+                </button>
+                
+                <button onclick="checkAnswer('bighead')" class="btn-bounce min-h-[90px] bg-gradient-to-b from-rose-500 to-red-600 text-white font-bold py-2 px-1 rounded-2xl shadow-[0_6px_0_rgb(159,18,57)] active:shadow-[0_0px_0_rgb(159,18,57)] active:translate-y-[6px] border-2 border-red-400 flex flex-col items-center justify-center gap-1">
+                    <span class="text-2xl sm:text-4xl mb-1">👽</span>
+                    <span class="text-[0.65rem] sm:text-base leading-tight">หัวโต</span>
+                    <span class="text-[0.5rem] sm:text-xs font-normal bg-red-900/50 rounded-full px-1.5 py-0.5">(บน > ล่าง)</span>
+                </button>
+
+                <button onclick="checkAnswer('twins')" class="btn-bounce min-h-[90px] bg-gradient-to-b from-fuchsia-500 to-purple-600 text-white font-bold py-2 px-1 rounded-2xl shadow-[0_6px_0_rgb(107,33,168)] active:shadow-[0_0px_0_rgb(107,33,168)] active:translate-y-[6px] border-2 border-purple-400 flex flex-col items-center justify-center gap-1">
+                    <span class="text-2xl sm:text-4xl mb-1">👯</span>
+                    <span class="text-[0.65rem] sm:text-base leading-tight">ฝาแฝด</span>
+                    <span class="text-[0.5rem] sm:text-xs font-normal bg-purple-900/50 rounded-full px-1.5 py-0.5">(บน = ล่าง)</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="absolute inset-0 bg-slate-900/95 z-50 flex flex-col items-center justify-center p-6 text-center backdrop-blur-md">
+            <div class="text-7xl mb-4 animate-mascot">⏱️🦉</div>
+            <h1 class="text-2xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400 mb-2 drop-shadow-lg leading-tight uppercase">Survival<br>แยกเศษส่วน</h1>
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-600 mb-6 max-w-sm w-full text-sm sm:text-base text-slate-300 font-semibold text-left space-y-2">
+                <p>✅ <span class="text-green-400">กติกา:</span> ตอบให้ทันเวลา! ครบ 10 ข้ออัปเลเวล</p>
+                <p>⚠️ <span class="text-yellow-400">ระวัง:</span> เลเวลยิ่งสูง เวลายิ่งน้อยลง (เหลือ 3 วิ)</p>
+                <p>❌ <span class="text-rose-400">ถ้าตอบผิด:</span> โดนลดเลเวล, รีเซ็ตความคืบหน้า <br>&nbsp;&nbsp;&nbsp;&nbsp;<b>และถูกตัดเวลาเหลือ 3 วิทันที! ให้รีบแก้ตัว!</b></p>
+            </div>
+            <button onclick="startGame()" class="btn-bounce w-full max-w-[250px] bg-gradient-to-b from-emerald-400 to-emerald-600 text-white font-bold text-2xl py-4 rounded-full shadow-[0_6px_0_rgb(4,120,87)] active:translate-y-[6px] border-2 border-emerald-300">
+                ▶️ เริ่มลุยเลย!
+            </button>
+        </div>
+
+        <!-- Timeout Modal -->
+        <div id="timeout-modal" class="hidden absolute inset-0 bg-black/80 z-40 flex flex-col items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-slate-800 rounded-3xl p-6 w-full max-w-sm text-center animate-pop border-4 border-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.3)]">
+                <div class="text-6xl mb-2">⏰</div>
+                <h2 class="text-3xl font-bold text-rose-500 mb-1">หมดเวลา!</h2>
+                <p class="text-sm text-rose-300 mb-4 font-bold bg-rose-900/30 py-1 px-3 rounded-full inline-block">- ลดเลเวล | - 20 คะแนน | เริ่มสะสมใหม่</p>
+                
+                <div id="timeout-text" class="text-slate-200 text-sm sm:text-base font-medium mb-6 bg-slate-700 p-4 rounded-xl border border-slate-600"></div>
+                
+                <button onclick="resumeAfterTimeout()" class="btn-bounce w-full bg-gradient-to-b from-sky-500 to-blue-600 text-white font-bold text-xl py-3 rounded-2xl shadow-[0_4px_0_rgb(30,64,175)] active:translate-y-[4px]">
+                    เข้าใจแล้ว! ข้อต่อไป 👍
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let score = 0;
+        let level = 1;
+        let progress = 0;
+        let highScore = 0;
+        
+        // Time limits array (Level 1 to 10)
+        const timeLimits = [15, 13, 11, 10, 8, 7, 5, 4, 3, 3];
+        
+        let currentNumerator = 0;
+        let currentDenominator = 0;
+        let actualType = '';
+        let isPlaying = false;
+        
+        let timerInterval;
+        let maxTimeMs = 0;
+        let timeLeft = 0;
+        const tickRate = 50; 
+        
+        let audioCtx;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            highScore = localStorage.getItem('fractionSurvivalProScore') || 0;
+            document.getElementById('high-score').innerText = highScore;
+        });
+
+        // Initialize Audio
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function sfxCorrect() { playTone(800, 'sine', 0.1, 0.1); setTimeout(() => playTone(1200, 'sine', 0.15, 0.1), 100); }
+        function sfxLevelUp() { playTone(400, 'square', 0.1, 0.1); setTimeout(() => playTone(600, 'square', 0.1, 0.1), 150); setTimeout(() => playTone(1200, 'square', 0.4, 0.1), 300); }
+        function sfxWrong() { playTone(150, 'sawtooth', 0.3, 0.15); }
+        function sfxTimeout() { playTone(200, 'sawtooth', 0.4, 0.2); setTimeout(() => playTone(150, 'sawtooth', 0.6, 0.2), 300); }
+
+        function updateMascot(state) {
+            const m = document.getElementById('mascot'), s = document.getElementById('mascot-speech');
+            s.classList.remove('hidden');
+            if (state === 'happy') { m.innerText = '😎'; s.innerText = 'เยี่ยม!'; s.className = 'bg-emerald-800 border border-emerald-600 rounded-2xl rounded-tl-none p-2 text-xs font-bold text-emerald-200 shadow-sm'; }
+            else if (state === 'sad') { m.innerText = '😵'; s.innerText = 'ผิดอ่ะ!'; s.className = 'bg-rose-900 border border-rose-700 rounded-2xl rounded-tl-none p-2 text-xs font-bold text-rose-200 shadow-sm'; }
+            else if (state === 'panic') { m.innerText = '😱'; s.innerText = 'เร็วเข้า!!'; s.className = 'bg-orange-800 border border-orange-600 rounded-2xl rounded-tl-none p-2 text-xs font-bold text-orange-200 shadow-sm animate-pulse'; }
+            else if (state === 'levelup') { m.innerText = '🌟'; s.innerText = 'LEVEL UP!'; s.className = 'bg-indigo-800 border border-indigo-500 rounded-2xl rounded-tl-none p-2 text-xs font-bold text-indigo-200 shadow-sm animate-bounce'; }
+            else { m.innerText = '🦉'; s.classList.add('hidden'); }
+        }
+
+        function updateUI() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('level-display').innerText = level;
+            document.getElementById('progress-text').innerText = `${progress}/10`;
+            
+            const p = document.getElementById('progress-text').parentElement;
+            p.classList.remove('animate-pop'); void p.offsetWidth; p.classList.add('animate-pop');
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('fractionSurvivalProScore', highScore);
+                document.getElementById('high-score').innerText = highScore;
+            }
+        }
+
+        function generateQuestion() {
+            let maxNum = Math.min(100, level * 10);
+            
+            let typeRand = Math.random();
+            if (typeRand < 0.33) {
+                currentDenominator = Math.floor(Math.random() * (maxNum - 1)) + 2; 
+                currentNumerator = Math.floor(Math.random() * (currentDenominator - 1)) + 1; 
+                actualType = 'proper';
+            } else if (typeRand < 0.66) {
+                let num = Math.floor(Math.random() * (maxNum - 1)) + 2;
+                currentNumerator = num; currentDenominator = num;
+                actualType = 'twins';
+            } else {
+                currentDenominator = Math.floor(Math.random() * (maxNum - 1)) + 2; 
+                currentNumerator = Math.floor(Math.random() * maxNum) + currentDenominator + 1; 
+                actualType = 'bighead';
+            }
+
+            const numEl = document.getElementById('numerator');
+            const denEl = document.getElementById('denominator');
+            numEl.classList.remove('animate-pop'); denEl.classList.remove('animate-pop');
+            void numEl.offsetWidth; 
+            numEl.innerText = currentNumerator; denEl.innerText = currentDenominator;
+            numEl.classList.add('animate-pop'); denEl.classList.add('animate-pop');
+
+            updateMascot('normal');
+            startTimerForQuestion();
+        }
+
+        function startTimerForQuestion() {
+            clearInterval(timerInterval);
+            let timeLimitSecs = timeLimits[Math.min(level - 1, 9)];
+            maxTimeMs = timeLimitSecs * 1000;
+            timeLeft = maxTimeMs;
+            
+            document.getElementById('max-time-text').innerText = timeLimitSecs;
+            updateTimerUI();
+
+            timerInterval = setInterval(() => {
+                if (!isPlaying) return; 
+                timeLeft -= tickRate; 
+                updateTimerUI();
+
+                if (timeLeft <= 3000 && timeLeft > 2900) {
+                    updateMascot('panic');
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timeLeft = 0;
+                    updateTimerUI();
+                    handleTimeout();
+                }
+            }, tickRate);
+        }
+
+        function updateTimerUI() {
+            const percentage = Math.max(0, (timeLeft / maxTimeMs) * 100);
+            const bar = document.getElementById('timer-bar');
+            bar.style.width = percentage + '%';
+            document.getElementById('time-text').innerText = (Math.max(0, timeLeft) / 1000).toFixed(1) + ' วิ';
+
+            if (percentage > 50) bar.className = 'h-full rounded-full w-full bg-emerald-500';
+            else if (percentage > 25) bar.className = 'h-full rounded-full w-full bg-yellow-400';
+            else bar.className = 'h-full rounded-full w-full bg-red-500 animate-pulse';
+        }
+
+        function applyPenalty() {
+            level = Math.max(1, level - 1); 
+            progress = 0; 
+            score = Math.max(0, score - 20);
+            updateUI();
+        }
+
+        function checkAnswer(selectedType) {
+            if (!isPlaying) return;
+
+            if (selectedType === actualType) {
+                // CORRECT
+                clearInterval(timerInterval);
+                score += (level * 10);
+                progress += 1;
+                
+                if (progress >= 10) {
+                    progress = 0; 
+                    level = Math.min(10, level + 1);
+                    updateUI(); sfxLevelUp(); updateMascot('levelup');
+                    confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ['#38bdf8', '#c084fc', '#fbbf24'] });
+                } else {
+                    updateUI(); sfxCorrect(); updateMascot('happy');
+                }
+                
+                isPlaying = false;
+                setTimeout(() => { isPlaying = true; generateQuestion(); }, 400);
+
+            } else {
+                // WRONG - NEW MECHANIC (No Modal, instant penalty, time drops to 3s)
+                applyPenalty();
+                sfxWrong(); 
+                updateMascot('sad');
+                
+                // Shake container
+                const fc = document.getElementById('fraction-container');
+                fc.classList.remove('shake-screen'); void fc.offsetWidth; fc.classList.add('shake-screen');
+                
+                // Show floating wrong text
+                const fw = document.getElementById('floating-wrong');
+                fw.classList.remove('hidden');
+                fw.classList.remove('animate-fade-up'); void fw.offsetWidth; fw.classList.add('animate-fade-up');
+                setTimeout(() => { fw.classList.add('hidden'); }, 1000);
+
+                // Cut time strictly to max 3 seconds (or keep current if already less)
+                if (timeLeft > 3000) {
+                    timeLeft = 3000;
+                    // Reset maxTimeMs so the progress bar visually jumps to represent the 3s
+                    maxTimeMs = 3000;
+                    updateTimerUI();
+                    updateMascot('panic');
+                }
+            }
+        }
+
+        function handleTimeout() {
+            isPlaying = false;
+            clearInterval(timerInterval);
+            sfxTimeout();
+            applyPenalty();
+            
+            const modal = document.getElementById('timeout-modal');
+            const textEl = document.getElementById('timeout-text');
+            
+            let expl = `ข้อที่แล้วคือ <b>${currentNumerator}/${currentDenominator}</b><br><br>`;
+            if (actualType === 'proper') {
+                expl += `(บน < ล่าง) ตอบ: <span class="text-sky-400 font-bold">คนปกติ (เศษส่วนแท้)</span>`;
+            } else if (actualType === 'twins') {
+                expl += `(บน = ล่าง) ตอบ: <span class="text-fuchsia-400 font-bold">ฝาแฝด</span>`;
+            } else {
+                expl += `(บน > ล่าง) ตอบ: <span class="text-rose-400 font-bold">หัวโต (เศษเกิน)</span>`;
+            }
+            
+            textEl.innerHTML = expl; 
+            modal.classList.remove('hidden');
+        }
+
+        window.resumeAfterTimeout = function() {
+            document.getElementById('timeout-modal').classList.add('hidden');
+            isPlaying = true; 
+            updateMascot('normal'); 
+            generateQuestion(); 
+        }
+
+        window.startGame = function() {
+            initAudio(); 
+            document.getElementById('start-screen').classList.add('hidden'); 
+            score = 0; level = 1; progress = 0; 
+            updateUI(); updateMascot('normal');
+            isPlaying = true; generateQuestion(); 
+        };
+    </script>
+</body>
+</html>
